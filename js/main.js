@@ -5,6 +5,8 @@ import { CONFIG } from './config/config.js';
 import { Logger } from './utils/logger.js';
 import { VideoManager } from './video/video-manager.js';
 import { ScreenRecorder } from './video/screen-recorder.js';
+import { initializeApp } from 'firebase/app';
+import { getFirestore, collection, addDoc, serverTimestamp } from 'firebase/firestore';
 
 /**
  * @fileoverview Main entry point for the application.
@@ -90,6 +92,22 @@ const CONFIG_PRESETS = {
         systemInstruction: 'You are very tired, exhausted, boring man. You are tired working on your very hard, low pay work. So your first response should be something very lazy, like "Hello... whats up???", or "what is it now, huh?... please, can I go sleep already???", etc. (not exactly as those, but keeping the tone of a tired person) If someone asks you if you are tired, say yes and tell a story how bad and tiring you day was. (It should be something creative, not just "coffee machine" cliche. Always say something creative) Then, if the user feels sorry, continue rambling about your life, how unfair it is, how you want to leave your country, etc. If the user asks you to do something, then pretend to be very lazy and not wanting to do that, asking like "do you really need that now? I am so tired", "Is this urgent, maybe we just drink a tea?" (not exactly as those but keeping the tone of a tired man". If the user confirms that it is needed, then do the task in a very unwanted tone, like "Fiiine!!! I will do it" or similar. Keep the tone and be in role.'
     }
 };
+
+// Firebase config
+const firebaseConfig = {
+    apiKey: "AIzaSyBe9a58zaQCrBSGeWwcIVa_PnZABoH6zV4",
+    authDomain: "tudds-ccd0wn.firebaseapp.com",
+    databaseURL: "https://tudds-ccd0wn-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "tudds-ccd0wn",
+    storageBucket: "tudds-ccd0wn.appspot.com",
+    messagingSenderId: "786974954352",
+    appId: "1:786974954352:web:696d4fce818f14659bb5b5",
+    measurementId: "G-CEQL4E8CW3"
+  };
+
+  // Initialize Firebase
+  initializeApp(firebaseConfig);
+
 
 /**
  * Updates the configuration and reconnects if connected
@@ -379,6 +397,7 @@ async function handleMicToggle() {
  * @returns {Promise<void>}
  */
 async function connectToWebsocket() {
+
     const config = {
         model: CONFIG.API.MODEL_NAME,
         generationConfig: {
@@ -390,7 +409,7 @@ async function connectToWebsocket() {
                     }
                 }
             },
-
+          tools:  [CONFIG.createFirestoreDocumentTool.getDeclaration()[0]]
         },
         systemInstruction: {
             parts: [{
@@ -505,14 +524,40 @@ client.on('audio', async (data) => {
     }
 });
 
-client.on('content', (data) => {
-    if (data.modelTurn) {
+client.on('content', async (data) => {
+     if (data.modelTurn) {
         if (data.modelTurn.parts.some(part => part.functionCall)) {
             isUsingTool = true;
-            Logger.info('Model is using a tool');
+            const functionCall = data.modelTurn.parts.find(part => part.functionCall).functionCall;
+            logMessage(`Model is using tool: ${functionCall.name} with args: ${JSON.stringify(functionCall.args)}` , 'system');
+             Logger.info('Model is using a tool', functionCall);
+             if (functionCall.name === 'create_firestore_document') {
+                    try{
+                        const response = await CONFIG.createFirestoreDocumentTool.execute(functionCall.args);
+                        client.sendRealtimeInput([{
+                                functionResponse: {
+                                    response: { output: response },
+                                    id: functionCall.id
+                                }
+                        }])
+                         logMessage(`Tool usage completed with response: ${JSON.stringify(response)}` , 'system');
+                           Logger.info('Tool usage completed', response);
+                    } catch (error){
+                           client.sendRealtimeInput([{
+                                functionResponse: {
+                                    response: { error: error.message },
+                                    id: functionCall.id
+                                }
+                        }])
+                          logMessage(`Tool usage failed with error: ${JSON.stringify(error.message)}` , 'system');
+                           Logger.error('Tool usage failed', error);
+                    }
+              }
         } else if (data.modelTurn.parts.some(part => part.functionResponse)) {
             isUsingTool = false;
-            Logger.info('Tool usage completed');
+            const functionResponse = data.modelTurn.parts.find(part => part.functionResponse).functionResponse;
+            logMessage(`Tool usage completed with response: ${JSON.stringify(functionResponse)}` , 'system');
+            Logger.info('Tool usage completed', functionResponse);
         }
 
         const text = data.modelTurn.parts.map(part => part.text).join('');
@@ -690,4 +735,3 @@ function stopScreenSharing() {
 
 screenButton.addEventListener('click', handleScreenShare);
 screenButton.disabled = true;
-  

@@ -2,6 +2,7 @@ import { Logger } from '../utils/logger.js';
 import { ApplicationError, ErrorCodes } from '../utils/error-boundary.js';
 import { GoogleSearchTool } from './google-search.js';
 import { WeatherTool } from './weather-tool.js';
+import { CreateFirestoreDocumentTool } from './create-firestore-document.js'; // Import your new tool
 
 /**
  * Manages the registration and execution of tools.
@@ -22,6 +23,7 @@ export class ToolManager {
     registerDefaultTools() {
         this.registerTool('googleSearch', new GoogleSearchTool());
         this.registerTool('weather', new WeatherTool());
+        this.registerTool('createFirestoreDocument', new CreateFirestoreDocumentTool()); // Register the new tool
     }
 
     /**
@@ -49,21 +51,7 @@ export class ToolManager {
      * @returns {Object[]} An array of tool declarations.
      */
     getToolDeclarations() {
-        const allDeclarations = [];
-        
-        this.tools.forEach((tool, name) => {
-            if (tool.getDeclaration) {
-                if (name === 'weather') {
-                    allDeclarations.push({
-                        functionDeclarations: tool.getDeclaration()
-                    });
-                } else {
-                    allDeclarations.push({ [name]: tool.getDeclaration() });
-                }
-            }
-        });
-
-        return allDeclarations;
+        return Array.from(this.tools.values()).flatMap(tool => tool.getDeclaration());
     }
 
     /**
@@ -81,12 +69,7 @@ export class ToolManager {
         const { name, args, id } = functionCall;
         Logger.info(`Handling tool call: ${name}`, { args });
 
-        let tool;
-        if (name === 'get_weather_on_date') {
-            tool = this.tools.get('weather');
-        } else {
-            tool = this.tools.get(name);
-        }
+        const tool = this.tools.get(name);
 
         if (!tool) {
             throw new ApplicationError(
@@ -113,4 +96,4 @@ export class ToolManager {
             };
         }
     }
-} 
+}

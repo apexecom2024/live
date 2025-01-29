@@ -1,3 +1,4 @@
+```javascript
 import { MultimodalLiveClient } from './core/websocket-client.js';
 import { AudioStreamer } from './audio/audio-streamer.js';
 import { AudioRecorder } from './audio/audio-recorder.js';
@@ -5,6 +6,8 @@ import { CONFIG } from './config/config.js';
 import { Logger } from './utils/logger.js';
 import { VideoManager } from './video/video-manager.js';
 import { ScreenRecorder } from './video/screen-recorder.js';
+import { ToolManager } from './tools/tool-manager.js'; // Import ToolManager
+
 
 /**
  * @fileoverview Main entry point for the application.
@@ -46,7 +49,7 @@ themeToggle.textContent = savedTheme === 'dark' ? 'light_mode' : 'dark_mode';
 themeToggle.addEventListener('click', () => {
     const currentTheme = root.getAttribute('data-theme');
     const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-    
+
     root.setAttribute('data-theme', newTheme);
     localStorage.setItem('theme', newTheme);
     themeToggle.textContent = newTheme === 'dark' ? 'light_mode' : 'dark_mode';
@@ -91,6 +94,7 @@ const CONFIG_PRESETS = {
     }
 };
 
+
 /**
  * Updates the configuration and reconnects if connected
  */
@@ -129,7 +133,7 @@ async function updateConfiguration() {
     }
 
     logMessage('Configuration updated successfully', 'system');
-    
+
     // Close the config panel on mobile after applying settings
     if (window.innerWidth <= 768) {
         configContainer.classList.remove('active');
@@ -165,8 +169,8 @@ configToggle.addEventListener('click', () => {
 
 // Close config panel when clicking outside (for desktop)
 document.addEventListener('click', (event) => {
-    if (!configContainer.contains(event.target) && 
-        !configToggle.contains(event.target) && 
+    if (!configContainer.contains(event.target) &&
+        !configToggle.contains(event.target) &&
         window.innerWidth > 768) {
         configContainer.classList.remove('active');
         configToggle.classList.remove('active');
@@ -217,10 +221,10 @@ document.querySelectorAll('.preset-button').forEach(button => {
             voiceSelect.value = preset.voice;
             sampleRateInput.value = preset.sampleRate;
             systemInstructionInput.value = preset.systemInstruction;
-            
+
             // Apply the configuration immediately
             updateConfiguration();
-            
+
             // Visual feedback
             button.style.backgroundColor = 'var(--primary-color)';
             button.style.color = 'white';
@@ -285,12 +289,12 @@ function updateMicIcon() {
 function updateAudioVisualizer(volume, isInput = false) {
     const visualizer = isInput ? inputAudioVisualizer : audioVisualizer;
     const audioBar = visualizer.querySelector('.audio-bar') || document.createElement('div');
-    
+
     if (!visualizer.contains(audioBar)) {
         audioBar.classList.add('audio-bar');
         visualizer.appendChild(audioBar);
     }
-    
+
     audioBar.style.width = `${volume * 100}%`;
     if (volume > 0) {
         audioBar.classList.add('active');
@@ -324,11 +328,11 @@ async function handleMicToggle() {
         try {
             await ensureAudioInitialized();
             audioRecorder = new AudioRecorder();
-            
+
             const inputAnalyser = audioCtx.createAnalyser();
             inputAnalyser.fftSize = 256;
             const inputDataArray = new Uint8Array(inputAnalyser.frequencyBinCount);
-            
+
             await audioRecorder.start((base64Data) => {
                 if (isUsingTool) {
                     client.sendRealtimeInput([{
@@ -342,7 +346,7 @@ async function handleMicToggle() {
                         data: base64Data
                     }]);
                 }
-                
+
                 inputAnalyser.getByteFrequencyData(inputDataArray);
                 const inputVolume = Math.max(...inputDataArray) / 255;
                 updateAudioVisualizer(inputVolume, true);
@@ -351,7 +355,7 @@ async function handleMicToggle() {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
             const source = audioCtx.createMediaStreamSource(stream);
             source.connect(inputAnalyser);
-            
+
             await audioStreamer.resume();
             isRecording = true;
             Logger.info('Microphone started');
@@ -379,25 +383,26 @@ async function handleMicToggle() {
  * @returns {Promise<void>}
  */
 async function connectToWebsocket() {
+    const toolManager = new ToolManager();
     const config = {
         model: CONFIG.API.MODEL_NAME,
         generationConfig: {
             responseModalities: "audio",
             speechConfig: {
-                voiceConfig: { 
-                    prebuiltVoiceConfig: { 
+                voiceConfig: {
+                    prebuiltVoiceConfig: {
                         voiceName: CONFIG.VOICE.NAME    // You can change voice in the config.js file
                     }
                 }
             },
-
+            tools: toolManager.getToolDeclarations()
         },
         systemInstruction: {
             parts: [{
                 text: CONFIG.SYSTEM_INSTRUCTION.TEXT     // You can change system instruction in the config.js file
             }],
         }
-    };  
+    };
 
     try {
         await client.connect(config);
@@ -422,7 +427,7 @@ async function connectToWebsocket() {
         };
         document.addEventListener('click', initAudioHandler);
         logMessage('Audio initialized', 'system');
-        
+
     } catch (error) {
         const errorMessage = error.message || 'Unknown error';
         Logger.error('Connection error:', error);
@@ -461,11 +466,11 @@ function disconnectFromWebsocket() {
     cameraButton.disabled = true;
     screenButton.disabled = true;
     logMessage('Disconnected from server', 'system');
-    
+
     if (videoManager) {
         stopVideo();
     }
-    
+
     if (screenRecorder) {
         stopScreenSharing();
     }
@@ -505,14 +510,35 @@ client.on('audio', async (data) => {
     }
 });
 
-client.on('content', (data) => {
+client.on('content', async (data) => {
     if (data.modelTurn) {
         if (data.modelTurn.parts.some(part => part.functionCall)) {
             isUsingTool = true;
-            Logger.info('Model is using a tool');
+            const functionCall = data.modelTurn.parts.find(part => part.functionCall).functionCall;
+            logMessage(`Model is using tool: ${functionCall.name} with args: ${JSON.stringify(functionCall.args)}`, 'system');
+            Logger.info('Model is using a tool', functionCall);
+
+            try {
+                const toolManager = new ToolManager();
+                const response = await toolManager.handleToolCall(functionCall);
+                client.sendRealtimeInput(response.functionResponses);
+                logMessage(`Tool usage completed with response: ${JSON.stringify(response)}`, 'system');
+                Logger.info('Tool usage completed', response);
+            } catch (error) {
+                client.sendRealtimeInput([{
+                    functionResponse: {
+                        response: { error: error.message },
+                        id: functionCall.id
+                    }
+                }]);
+                logMessage(`Tool usage failed with error: ${JSON.stringify(error.message)}`, 'system');
+                Logger.error('Tool usage failed', error);
+            }
         } else if (data.modelTurn.parts.some(part => part.functionResponse)) {
             isUsingTool = false;
-            Logger.info('Tool usage completed');
+            const functionResponse = data.modelTurn.parts.find(part => part.functionResponse).functionResponse;
+            logMessage(`Tool usage completed with response: ${JSON.stringify(functionResponse)}`, 'system');
+            Logger.info('Tool usage completed', functionResponse);
         }
 
         const text = data.modelTurn.parts.map(part => part.text).join('');
@@ -582,14 +608,14 @@ connectButton.textContent = 'Connect';
  */
 async function handleVideoToggle() {
     Logger.info('Video toggle clicked, current state:', { isVideoActive, isConnected });
-    
+
     if (!isVideoActive) {
         try {
             Logger.info('Attempting to start video');
             if (!videoManager) {
                 videoManager = new VideoManager();
             }
-            
+
             await videoManager.start((frameData) => {
                 if (isConnected) {
                     client.sendRealtimeInput([frameData]);
@@ -643,7 +669,7 @@ async function handleScreenShare() {
     if (!isScreenSharing) {
         try {
             screenContainer.style.display = 'block';
-            
+
             screenRecorder = new ScreenRecorder();
             await screenRecorder.start(screenPreview, (frameData) => {
                 if (isConnected) {
@@ -690,4 +716,3 @@ function stopScreenSharing() {
 
 screenButton.addEventListener('click', handleScreenShare);
 screenButton.disabled = true;
-  

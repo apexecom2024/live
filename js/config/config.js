@@ -128,16 +128,16 @@ export const CONFIG = {
                 const generalObservationsMatch = text.match(/general observations is ([\w\s.]+)/i);
                 const heightMatch = text.match(/height is (\d+)/i);
                 const historyOfIllnessMatch = text.match(/history of illness is ([\w\s.,]+)/i);
-                 const integumentMatch = text.match(/integument is ([\w\s.]+)/i);
+                const integumentMatch = text.match(/integument is ([\w\s.]+)/i);
                 const labResultsMatch = text.match(/lab results are ([\w\s.]+)/i);
                 const locationMatch = text.match(/location is ([\w\s.]+)/i);
                 const pastMedicalHistoryMatch = text.match(/past medical history is ([\w\s.,]+)/i);
                 const patientNameMatch = text.match(/patient name is ([\w\s.]+)/i);
                 const printedNameMatch = text.match(/printed name is ([\w\s.]+)/i);
                 const raceMatch = text.match(/race is ([\w\s.]+)/i);
-                 const respiratoryMatch = text.match(/respiratory is ([\w\s.]+)/i);
+                const respiratoryMatch = text.match(/respiratory is ([\w\s.]+)/i);
                 const reviewOfSystemsMatch = text.match(/review of systems is ([\w\s.,]+)/i);
-                 const socialHistoryMatch = text.match(/social history is ([\w\s.,]+)/i);
+                const socialHistoryMatch = text.match(/social history is ([\w\s.,]+)/i);
                 const temperatureMatch = text.match(/temperature is ([\d.]+)/i);
                 const titleMatch = text.match(/title is ([\w\s]+)/i);
                 const treatmentPlanMatch = text.match(/treatment plan is ([\w\s.]+)/i);
@@ -150,7 +150,7 @@ export const CONFIG = {
                     bmi: bmiMatch ? bmiMatch[1] : null,
                     cardiovascular: cardiovascularMatch ? cardiovascularMatch[1] : null,
                     chiefComplaint: chiefComplaintMatch ? chiefComplaintMatch[1] : null,
-                     conductedOn: conductedOnMatch ? conductedOnMatch[1] : null,
+                    conductedOn: conductedOnMatch ? conductedOnMatch[1] : null,
                     created_at:  firebase.firestore.FieldValue.serverTimestamp(),
                     date: dateMatch ? dateMatch[1] : null,
                     differentialDiagnosis: differentialDiagnosisMatch ? differentialDiagnosisMatch[1] : null,
@@ -163,16 +163,16 @@ export const CONFIG = {
                     generalObservations: generalObservationsMatch ? generalObservationsMatch[1] : null,
                     height: heightMatch ? heightMatch[1] : null,
                     historyOfIllness: historyOfIllnessMatch ? historyOfIllnessMatch[1] : null,
-                     integument: integumentMatch ? integumentMatch[1] : null,
-                     labResults: labResultsMatch ? labResultsMatch[1] : null,
+                    integument: integumentMatch ? integumentMatch[1] : null,
+                    labResults: labResultsMatch ? labResultsMatch[1] : null,
                     location: locationMatch ? locationMatch[1] : null,
                     pastMedicalHistory: pastMedicalHistoryMatch ? pastMedicalHistoryMatch[1] : null,
                     patientName: patientNameMatch ? patientNameMatch[1] : null,
-                     printedName: printedNameMatch ? printedNameMatch[1] : null,
+                    printedName: printedNameMatch ? printedNameMatch[1] : null,
                     race: raceMatch ? raceMatch[1] : null,
                     respiratory: respiratoryMatch ? respiratoryMatch[1] : null,
                     reviewOfSystems: reviewOfSystemsMatch ? reviewOfSystemsMatch[1] : null,
-                     socialHistory: socialHistoryMatch ? socialHistoryMatch[1] : null,
+                    socialHistory: socialHistoryMatch ? socialHistoryMatch[1] : null,
                     temperature: temperatureMatch ? temperatureMatch[1] : null,
                     title: titleMatch ? titleMatch[1] : null,
                     treatmentPlan: treatmentPlanMatch ? treatmentPlanMatch[1] : null,
